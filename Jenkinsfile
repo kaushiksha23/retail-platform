@@ -1,6 +1,32 @@
 pipeline {
     agent any
 
+    parameters {
+        choice(
+            name: 'DEPLOYMENT_ACTION',
+            choices: ['DEPLOY', 'ROLLBACK'],
+            description: 'Select whether to deploy a new version or rollback'
+        )
+
+        choice(
+            name: 'ENVIRONMENT',
+            choices: ['UAT', 'PRODUCTION'],
+            description: 'Select the deployment environment'
+        )
+
+        string(
+            name: 'VERSION',
+            defaultValue: '4.2.1',
+            description: 'Enter the application version to deploy'
+        )
+
+        choice(
+            name: 'CONFIRM_PROD',
+            choices: ['YES', 'NO'],
+            description: 'Production deployment requires explicit confirmation'
+        )
+    }
+
     stages {
 
         stage('Show Parameters') {
@@ -28,5 +54,20 @@ pipeline {
             }
         }
 
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Validate Git Version') {
+            steps {
+                bat """
+                    echo Checking Git tag for version ${params.VERSION}
+                    git fetch --tags origin
+                    git rev-parse --verify refs/tags/v${params.VERSION}
+                """
+            }
+        }
     }
 }
