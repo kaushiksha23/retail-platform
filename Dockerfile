@@ -8,14 +8,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app/app.py .
 
-# Create a non-root user
 RUN useradd --create-home --shell /usr/sbin/nologin appuser
 
 USER appuser
 
 EXPOSE 8081
 
-# Docker health check
 HEALTHCHECK --interval=5s --timeout=3s --retries=5 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081/health', timeout=2)" || exit 1
 
