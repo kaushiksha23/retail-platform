@@ -1,7 +1,13 @@
 pipeline {
     agent any
 
+    options {
+        disableConcurrentBuilds()
+        timestamps()
+    }
+
     parameters {
+
         choice(
             name: 'DEPLOYMENT_ACTION',
             choices: ['DEPLOY', 'ROLLBACK'],
@@ -17,7 +23,7 @@ pipeline {
         string(
             name: 'VERSION',
             defaultValue: '4.2.1',
-            description: 'Enter the application version to deploy'
+            description: 'Enter the application version to deploy or validate'
         )
 
         choice(
@@ -32,10 +38,10 @@ pipeline {
         stage('Show Parameters') {
             steps {
                 echo "======================================"
-                echo "DEPLOYMENT_ACTION = ${params.DEPLOYMENT_ACTION}"
-                echo "ENVIRONMENT       = ${params.ENVIRONMENT}"
-                echo "VERSION           = ${params.VERSION}"
-                echo "CONFIRM_PROD      = ${params.CONFIRM_PROD}"
+                echo "DEPLOYMENT ACTION : ${params.DEPLOYMENT_ACTION}"
+                echo "ENVIRONMENT       : ${params.ENVIRONMENT}"
+                echo "VERSION           : ${params.VERSION}"
+                echo "CONFIRM PROD      : ${params.CONFIRM_PROD}"
                 echo "======================================"
             }
         }
@@ -43,10 +49,13 @@ pipeline {
         stage('Production Confirmation') {
             steps {
                 script {
+
                     if (params.ENVIRONMENT == 'PRODUCTION' &&
                         params.CONFIRM_PROD != 'YES') {
 
-                        error("Production deployment blocked: CONFIRM_PROD must be YES.")
+                        error(
+                            "Production deployment blocked: CONFIRM_PROD must be YES."
+                        )
                     }
 
                     echo "Environment confirmation passed."
@@ -57,16 +66,27 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
+
+                bat """
+                    echo Fetching Git tags...
+                    git fetch --tags origin
+
+                    echo Checking out requested version...
+                    git checkout tags/v${params.VERSION}
+                """
             }
         }
 
         stage('Validate Git Version') {
             steps {
                 bat """
-                    echo Checking Git tag for version ${params.VERSION}
-                    git fetch --tags origin
+                    echo ======================================
+                    echo Validating version v${params.VERSION}
+                    echo ======================================
+
                     git rev-parse --verify refs/tags/v${params.VERSION}
-                    git checkout tags/v${params.VERSION}
+
+                    echo Version v${params.VERSION} exists.
                 """
             }
         }
@@ -74,14 +94,69 @@ pipeline {
         stage('Identify Git Commit') {
             steps {
                 script {
+
                     def commit = bat(
                         script: 'git rev-parse HEAD',
                         returnStdout: true
                     ).trim()
 
-                    echo "Selected Git commit: ${commit}"
+                    echo "======================================"
+                    echo "Selected Git commit:"
+                    echo "${commit}"
+                    echo "======================================"
                 }
             }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+
+                    echo "======================================"
+                    echo "Building Docker image"
+                    echo "Image: retail-app:${params.VERSION}"
+                    echo "======================================"
+
+                    bat """
+                        docker build -t retail-app:${params.VERSION} .
+                    """
+
+                    echo "Docker image built successfully."
+                }
+            }
+        }
+
+        stage('Verify Docker Image') {
+            steps {
+                bat """
+                    echo ======================================
+                    echo Docker image verification
+                    echo ======================================
+
+                    docker image inspect retail-app:${params.VERSION}
+
+                    echo Docker image retail-app:${params.VERSION} exists.
+                """
+            }
+        }
+    }
+
+    post {
+
+        success {
+            echo "======================================"
+            echo "PIPELINE STATUS: SUCCESS"
+            echo "Version: ${params.VERSION}"
+            echo "Action: ${params.DEPLOYMENT_ACTION}"
+            echo "Environment: ${params.ENVIRONMENT}"
+            echo "======================================"
+        }
+
+        failure {
+            echo "======================================"
+            echo "PIPELINE STATUS: FAILURE"
+            echo "Check the console output above."
+            echo "======================================"
         }
     }
 }
