@@ -1,8 +1,10 @@
+import os
 from flask import Flask, jsonify
 
 app = Flask(__name__)
 
-VERSION = "4.2.1"
+VERSION = os.getenv("APP_VERSION", "4.2.0")
+FORCE_HEALTH_FAIL = os.getenv("FORCE_HEALTH_FAIL", "false").lower() == "true"
 
 
 @app.route("/")
@@ -16,10 +18,18 @@ def home():
 
 @app.route("/health")
 def health():
+    if FORCE_HEALTH_FAIL:
+        return jsonify({
+            "status": "unhealthy",
+            "version": VERSION,
+            "reason": "Failure injection enabled"
+        }), 500
+
     return jsonify({
         "status": "healthy",
         "version": VERSION
     }), 200
+
 
 @app.route("/payment")
 def payment():
