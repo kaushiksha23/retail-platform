@@ -66,7 +66,21 @@ pipeline {
                     echo Checking Git tag for version ${params.VERSION}
                     git fetch --tags origin
                     git rev-parse --verify refs/tags/v${params.VERSION}
+                    git checkout tags/v${params.VERSION}
                 """
+            }
+        }
+
+        stage('Identify Git Commit') {
+            steps {
+                script {
+                    def commit = bat(
+                        script: 'git rev-parse HEAD',
+                        returnStdout: true
+                    ).trim()
+
+                    echo "Selected Git commit: ${commit}"
+                }
             }
         }
     }
