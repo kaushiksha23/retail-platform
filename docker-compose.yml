@@ -1,16 +1,25 @@
 services:
   retail-platform:
+    build: .
     image: retail-app:${APP_VERSION:-4.2.3}
-    build:
-      context: .
     container_name: retail-platform-compose
+
     ports:
       - "8081:8081"
+
     environment:
       APP_VERSION: ${APP_VERSION:-4.2.3}
       FORCE_HEALTH_FAIL: ${FORCE_HEALTH_FAIL:-false}
+
+    volumes:
+      - retail-data:/app/data
+
+    cpus: "0.50"
+    mem_limit: 512m
+
     networks:
       - retail-network
+
     healthcheck:
       test:
         [
@@ -22,6 +31,9 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+
+volumes:
+  retail-data:
 
 networks:
   retail-network:
