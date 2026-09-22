@@ -1,9 +1,7 @@
 # Retail Platform API
 
 ## GET /
-
-Returns basic application information from develop branch.
-
+Returns basic application information from develop and conflict-demo branches.
 ### Response
 
 ```json
