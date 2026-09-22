@@ -1,28 +1,47 @@
-# Retail Platform
+# Retail Platform — DevOps Assessment
 
-A containerized Retail Platform application demonstrating Git branching,
-Jenkins CI/CD automation, Docker deployment, health checks, failure
-handling, and automatic rollback.
+## Overview
 
-## Project Overview
+Retail Platform is a containerized Flask application implemented as part of the DevOps Assessment.
 
-This project demonstrates a production-style deployment workflow for a
-Retail Platform application.
+The project demonstrates:
 
-The application exposes REST endpoints for application information,
-health monitoring, and payment processing.
+- Git branching and release management
+- Hotfix development and merge strategy
+- Merge conflict creation and resolution
+- Git tagging and release traceability
+- Jenkins parameterized deployment
+- Docker image versioning
+- Docker health checks
+- Candidate validation
+- Automated rollback
+- Failure injection
+- Docker networking
+- Environment variables
+- Resource controls
+- Non-root container execution
 
-## Application
+---
 
-The application is built using:
+## Repository
 
-- Python
-- Flask
-- Docker
-- Jenkins
-- Git / GitHub
+GitHub:
 
-### Application Port
+https://github.com/kaushiksha23/retail-platform.git
+
+---
+
+## Project Structure
 
 ```text
-8081
+retail-platform/
+├── app/
+│   ├── app.py
+│   └── requirements.txt
+├── tests/
+├── Dockerfile
+├── docker-compose.yml
+├── Jenkinsfile
+├── API.md
+├── README.md
+└── .gitignore
