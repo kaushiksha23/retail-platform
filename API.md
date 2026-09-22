@@ -2,7 +2,7 @@
 
 ## GET /
 
-Returns basic application information.
+Returns basic application information from conflict-demo.
 
 ### Response
 
