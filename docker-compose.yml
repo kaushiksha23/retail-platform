@@ -1,5 +1,28 @@
 services:
   retail-platform:
-    build: .
+    image: retail-app:${APP_VERSION:-4.2.3}
+    build:
+      context: .
+    container_name: retail-platform-compose
     ports:
       - "8081:8081"
+    environment:
+      APP_VERSION: ${APP_VERSION:-4.2.3}
+      FORCE_HEALTH_FAIL: ${FORCE_HEALTH_FAIL:-false}
+    networks:
+      - retail-network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081/health', timeout=2)"
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+networks:
+  retail-network:
+    driver: bridge
