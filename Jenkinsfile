@@ -150,7 +150,7 @@ pipeline {
                 script {
 
                     /*
-                     * Make sure the Docker network exists.
+                     * Make sure Docker network exists.
                      */
                     bat """
                         docker network inspect retail-network >NUL 2>&1 || docker network create retail-network
@@ -190,7 +190,7 @@ pipeline {
                             echo "Previous image: ${previousImage}"
 
                             /*
-                             * Save the previous image under a stable rollback tag.
+                             * Save previous image for rollback.
                              */
                             bat """
                                 docker tag ${previousImage} retail-app:previous
@@ -212,9 +212,7 @@ pipeline {
                         /*
                          * Start candidate on temporary port 18081.
                          *
-                         * IMPORTANT:
-                         * The old application on 8081 is still running.
-                         * We only replace it after the candidate becomes healthy.
+                         * Old application on 8081 remains running.
                          */
                         echo "======================================"
                         echo "STARTING CANDIDATE"
@@ -233,7 +231,7 @@ pipeline {
                         """
 
                         /*
-                         * Wait for Docker HEALTHCHECK.
+                         * Wait for candidate health check.
                          */
                         echo "Waiting for candidate health check..."
 
@@ -261,7 +259,7 @@ pipeline {
                         }
 
                         /*
-                         * Candidate failed.
+                         * Candidate failed health check.
                          * Old production container is still untouched.
                          */
                         if (!candidateHealthy) {
@@ -284,7 +282,7 @@ pipeline {
 
                         /*
                          * Candidate is healthy.
-                         * Now perform the production swap.
+                         * Now perform production swap.
                          */
                         echo "======================================"
                         echo "CANDIDATE HEALTHY"
@@ -300,6 +298,16 @@ pipeline {
                                 docker rm ${previousContainer}
                             """
                         }
+
+                        /*
+                         * IMPORTANT:
+                         * Remove any stale container with the same name.
+                         * This prevents the Docker name conflict that happened
+                         * in the previous Jenkins run.
+                         */
+                        bat """
+                            docker rm -f retail-platform-app >NUL 2>&1 || exit /b 0
+                        """
 
                         /*
                          * Start the new production container.
@@ -318,7 +326,7 @@ pipeline {
                          * Candidate is no longer required.
                          */
                         bat """
-                            docker rm -f retail-platform-candidate
+                            docker rm -f retail-platform-candidate >NUL 2>&1 || exit /b 0
                         """
 
                         /*
@@ -352,8 +360,8 @@ pipeline {
                         }
 
                         /*
-                         * Production health failed AFTER swap.
-                         * Roll back automatically.
+                         * Production health failed after swap.
+                         * Automatically rollback.
                          */
                         if (!productionHealthy) {
 
@@ -381,16 +389,33 @@ pipeline {
                                       ${previousImage}
                                 """
 
-                                sleep(time: 3, unit: 'SECONDS')
+                                /*
+                                 * Wait for rollback health.
+                                 */
+                                def rollbackHealthy = false
 
-                                def rollbackHealth = bat(
-                                    script: '@docker inspect -f "{{.State.Health.Status}}" retail-platform-app',
-                                    returnStdout: true
-                                ).trim()
+                                for (int i = 0; i < 15; i++) {
 
-                                echo "Rollback health: ${rollbackHealth}"
+                                    def rollbackHealth = bat(
+                                        script: '@docker inspect -f "{{.State.Health.Status}}" retail-platform-app',
+                                        returnStdout: true
+                                    ).trim()
 
-                                if (rollbackHealth != 'healthy') {
+                                    echo "Rollback health: ${rollbackHealth}"
+
+                                    if (rollbackHealth == 'healthy') {
+                                        rollbackHealthy = true
+                                        break
+                                    }
+
+                                    if (rollbackHealth == 'unhealthy') {
+                                        break
+                                    }
+
+                                    sleep(time: 2, unit: 'SECONDS')
+                                }
+
+                                if (!rollbackHealthy) {
                                     error(
                                         "CRITICAL: rollback container did not become healthy."
                                     )
@@ -409,9 +434,8 @@ pipeline {
                             }
 
                             /*
-                             * IMPORTANT:
-                             * The deployment must be marked FAILURE because
-                             * rollback was required.
+                             * Deployment must be FAILURE because rollback
+                             * was required.
                              */
                             error(
                                 "DEPLOYMENT FAILED: health check failed. Previous version was restored successfully."
@@ -434,12 +458,15 @@ pipeline {
                         echo "ROLLBACK REQUESTED"
                         echo "======================================"
 
-                        def rollbackImage = bat(
-                            script: '@docker image inspect retail-app:previous --format "{{.RepoTags}}"',
-                            returnStdout: true
-                        ).trim()
+                        /*
+                         * Check whether the rollback image exists.
+                         */
+                        def rollbackExists = bat(
+                            script: '@docker image inspect retail-app:previous >NUL 2>&1',
+                            returnStatus: true
+                        )
 
-                        if (!rollbackImage) {
+                        if (rollbackExists != 0) {
                             error(
                                 "Rollback image retail-app:previous does not exist."
                             )
@@ -466,8 +493,9 @@ pipeline {
                               retail-app:previous
                         """
 
-                        sleep(time: 3, unit: 'SECONDS')
-
+                        /*
+                         * Wait for rollback health.
+                         */
                         def rollbackHealthy = false
 
                         for (int i = 0; i < 15; i++) {
@@ -481,6 +509,10 @@ pipeline {
 
                             if (health == 'healthy') {
                                 rollbackHealthy = true
+                                break
+                            }
+
+                            if (health == 'unhealthy') {
                                 break
                             }
 
