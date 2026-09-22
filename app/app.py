@@ -35,7 +35,7 @@ def health():
 def payment():
     return jsonify({
         "payment_status": "success",
-        "message": "Payment processed successfully",
+        "message": "Payment processed successfully - payment validation fixed ",
         "version": VERSION
     })
 
