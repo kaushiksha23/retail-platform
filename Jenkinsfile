@@ -620,6 +620,7 @@ pipeline {
                                       --name retail-platform-app ^
                                       --network retail-network ^
                                       -p 8081:8081 ^
+                                      -e APP_VERSION=${previousImage.replace('retail-app:', '')} ^
                                       -e FORCE_HEALTH_FAIL=false ^
                                       ${previousImage}
 
